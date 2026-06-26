@@ -1,11 +1,11 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "dist/server/server.js", "use": "@vercel/node" },
-    { "src": "dist/client/**", "use": "@vercel/static" }
-  ],
+  "framework": "tanstack-start",
+  "cleanUrls": true,
   "routes": [
-    { "src": "/assets/(.*)", "dest": "dist/client/assets/$1" },
-    { "src": "/(.*)", "dest": "dist/server/server.js" }
+    {
+      "src": "/(.*)",
+      "dest": "dist/server/server.js",
+      "check": true
+    }
   ]
 }
