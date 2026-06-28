@@ -85,33 +85,34 @@ export const PickupLocationPicker: React.FC<PickupLocationPickerProps> = ({ onLo
   return (
     <div className="space-y-3 w-full">
       
-      {/* ✅ FIX: High z-index staking class and pointer-events-auto makes input accessible */}
-      <div className="relative z-50 pointer-events-auto">
-        <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
-          Pickup Address / GPS Location
-        </label>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={!ready}
-          placeholder="Search for an address or find your location below..."
-          className="w-full px-3 py-2 text-sm border rounded-md bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm text-foreground"
-        />
-        
-        {status === "OK" && (
-          <ul className="absolute z-50 w-full bg-popover border text-popover-foreground rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg pointer-events-auto divide-y divide-border">
-            {data.map(({ place_id, description }) => (
-              <li
-                key={place_id}
-                onClick={() => handleSelectAddress(description)}
-                className="px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm transition-colors"
-              >
-                {description}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* Search Input Container */}
+<div className="relative z-50 pointer-events-auto">
+  <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
+    Pickup Address / GPS Location
+  </label>
+  <input
+    value={value}
+    onChange={(e) => setValue(e.target.value)} // ✅ This line allows typing!
+    disabled={!ready}
+    placeholder="Search for an address..."
+    className="w-full px-3 py-2 text-sm border rounded-md bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+  />
+  
+  {/* Dropdown Suggestions List */}
+  {status === "OK" && (
+    <ul className="absolute z-50 w-full bg-popover border text-popover-foreground rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg pointer-events-auto">
+      {data.map(({ place_id, description }) => (
+        <li
+          key={place_id}
+          onClick={() => handleSelectAddress(description)}
+          className="px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm border-b last:border-0"
+        >
+          {description}
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
 
       {/* Free Interactive Map canvas */}
       <div className="w-full h-64 rounded-lg overflow-hidden border relative shadow-inner bg-muted z-10">
