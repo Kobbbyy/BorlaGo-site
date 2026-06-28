@@ -1,7 +1,8 @@
-// src/routes/user.book-pickup.tsx
+"use client";
+
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { MapPin, Calendar, Check, Trash2, Loader2 } from "lucide-react";
+import { Calendar, Check, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { UserApp } from "@/layouts/user-app";
 import { PageHeader } from "@/components/shared/page-header";
@@ -14,9 +15,8 @@ import { wasteTypeMeta } from "@/lib/mock-data";
 import type { WasteType } from "@/types";
 import { supabase } from "@/lib/supabase";
 
-// mapcn interface imports
-import { Map, MapControls, MapMarker } from "@/components/ui/map";
-import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+// ✅ IMPORT YOUR FIXED COMPONENT HERE
+import { PickupLocationPicker } from "@/components/PickupLocationPicker"; // Adjust path if needed
 
 export const Route = createFileRoute("/user/book-pickup")({
   head: () => ({ meta: [{ title: "Book a pickup — BorlaGo" }] }),
@@ -29,11 +29,6 @@ export const Route = createFileRoute("/user/book-pickup")({
 
 const windows = ["08:00 – 10:00", "10:00 – 12:00", "13:00 – 15:00", "15:00 – 17:00"];
 
-// MapLibre uses standard [Longitude, Latitude] ordering
-const ACCRA_CENTER_LNG_LAT: [number, number] = [-0.1870, 5.6037];
-// Google services require the traditional { lat, lng } object format
-const ACCRA_CENTER_GOOGLE = { lat: 5.6037, lng: -0.1870 };
-
 function BookPickup() {
   const navigate = useNavigate();
   const [waste, setWaste] = useState<WasteType>("general");
@@ -45,57 +40,26 @@ function BookPickup() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Unified viewport tracking context matching your wrapper implementation
-  const [viewport, setViewport] = useState({
-    center: ACCRA_CENTER_LNG_LAT,
-    zoom: 12,
-    bearing: 0,
-    pitch: 0,
-  });
-  const [markerPosition, setMarkerPosition] = useState<[number, number]>(ACCRA_CENTER_LNG_LAT);
+  // ✅ FORMS STATE: Track selected target coordinates and physical address string
+  const [address, setAddress] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Hook for text address searches with local prioritization bias
-  const {
-    ready,
-    value: autocompleteValue,
-    suggestions: { status, data },
-    setValue: setAutocompleteValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      locationBias: { radius: 30000, center: ACCRA_CENTER_GOOGLE },
-    },
-    defaultValue: "12 Independence Ave, Accra",
-    debounce: 300,
-  });
-
-  const [address, setAddress] = useState("12 Independence Ave, Accra");
   const total = wasteTypeMeta[waste].price + Math.max(0, bags - 2) * 3;
 
-  // Handle autocomplete dropdown selection
-  const handleSelectAddress = async (description: string) => {
-    setAutocompleteValue(description, false);
-    setAddress(description);
-    clearSuggestions();
-
-    try {
-      const results = await getGeocode({ address: description });
-      const { lat, lng } = await getLatLng(results[0]);
-      
-      const targetLngLat: [number, number] = [lng, lat];
-      setMarkerPosition(targetLngLat);
-      setViewport((prev) => ({
-        ...prev,
-        center: targetLngLat,
-        zoom: 16, // Focus directly on the pinpointed region
-      }));
-    } catch (error) {
-      console.error("Geocoding failed:", error);
-    }
+  // ✅ CALLBACK LAYER: Fired when the user searches OR clicks live GPS targeting
+  const handleLocationSelected = (location: { address: string; lat: number; lng: number }) => {
+    setAddress(location.address);
+    setCoords({ lat: location.lat, lng: location.lng });
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!address || !coords) {
+      toast.error("Location Required", { description: "Please search for an address or use the live GPS tool." });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -115,8 +79,8 @@ function BookPickup() {
           waste_type: waste,
           estimated_weight: bags * 5,
           address: address,
-          latitude: markerPosition[1], // markerPosition[1] is Latitude
-          longitude: markerPosition[0], // markerPosition[0] is Longitude
+          latitude: coords.lat, 
+          longitude: coords.lng, 
           scheduled_date: date,
           time_window: slot,
           notes: notes || null,
@@ -135,7 +99,7 @@ function BookPickup() {
         description: error.message || "An unexpected system communication issue occurred." 
       });
     } finally {
-      setLoading(false);
+      loading && setLoading(false);
     }
   };
 
@@ -176,63 +140,10 @@ function BookPickup() {
           <Card className="space-y-4 p-5">
             <h2 className="font-display text-base font-semibold">Pickup details</h2>
             
-            {/* Autocomplete Input Text Field */}
-            <div className="space-y-2">
-              <Label htmlFor="address">Address / GPS Search</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="address"
-                  value={autocompleteValue}
-                  onChange={(e) => {
-                    setAutocompleteValue(e.target.value);
-                    setAddress(e.target.value);
-                  }}
-                  disabled={!ready || loading}
-                  placeholder="Search for an address or pinpoint your location on the map below..."
-                  className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  required
-                />
-                
-                {status === "OK" && (
-                  <ul className="absolute z-50 w-full bg-popover text-popover-foreground border rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
-                    {data.map(({ place_id, description }) => (
-                      <li
-                        key={place_id}
-                        onClick={() => handleSelectAddress(description)}
-                        className="px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm border-b last:border-0"
-                      >
-                        {description}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+            {/* ✅ SWAPPED OUT DUPLICATE FOR THE CLEAN MAP WRAPPER IMPLEMENTATION */}
+            <PickupLocationPicker onLocationSelected={handleLocationSelected} />
 
-            {/* Interactive mapcn Canvas Container */}
-            <div className="w-full h-64 rounded-lg overflow-hidden border relative shadow-inner bg-muted">
-              <Map
-                viewport={viewport}
-                onViewportChange={setViewport}
-              >
-                <MapControls position="bottom-right" showZoom showLocate />
-                
-                <MapMarker 
-                  longitude={markerPosition[0]} 
-                  latitude={markerPosition[1]}
-                >
-                  <div className="p-2 bg-primary text-primary-foreground rounded-full shadow-md animate-pulse">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                </MapMarker>
-              </Map>
-              <div className="absolute bottom-2 left-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded shadow-sm pointer-events-none z-10">
-                📍 Map centered over your selected location point
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
                 <div className="relative">
