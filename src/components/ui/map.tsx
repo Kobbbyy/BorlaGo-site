@@ -809,6 +809,12 @@ function MapControls({
           console.error("Error getting location:", error);
           setWaitingForLocation(false);
         },
+        /* ✅ COGNIZANT SYSTEM FIX: Zeroed out maximumAge to prevent loading stale coordinate states */
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+        }
       );
     }
   }, [map, onLocate]);
@@ -864,8 +870,8 @@ function MapControls({
       {showFullscreen && (
         <ControlGroup>
           <ControlButton onClick={handleFullscreen} label="Toggle fullscreen">
-            <Maximize className="size-4" />
-          </ControlButton>
+            <Maximize className="size-4" /> {/* <-- Self-closed icon */}
+          </ControlButton> {/* <-- This should close the ControlButton cleanly */}
         </ControlGroup>
       )}
     </div>
