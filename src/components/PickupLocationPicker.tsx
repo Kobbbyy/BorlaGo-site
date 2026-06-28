@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { Map, MapControls, MapMarker } from "@/components/ui/map";
 import { MapPin } from "lucide-react";
@@ -62,10 +64,29 @@ export const PickupLocationPicker: React.FC<PickupLocationPickerProps> = ({ onLo
     }
   };
 
+  /* ✅ FIX: Capture live location coords from the map control click and sync back up to parent */
+  const handleLiveLocationDetected = (coords: { longitude: number; latitude: number }) => {
+    const newCoords: [number, number] = [coords.longitude, coords.latitude];
+    setMarkerPosition(newCoords);
+    setViewport((prev) => ({
+      ...prev,
+      center: newCoords,
+      zoom: 15,
+    }));
+
+    setValue("Current GPS Location", false);
+    onLocationSelected({
+      address: "Current GPS Location",
+      lat: coords.latitude,
+      lng: coords.longitude,
+    });
+  };
+
   return (
     <div className="space-y-3 w-full">
       
-      <div className="relative">
+      {/* ✅ FIX: High z-index staking class and pointer-events-auto makes input accessible */}
+      <div className="relative z-50 pointer-events-auto">
         <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
           Pickup Address / GPS Location
         </label>
@@ -74,16 +95,16 @@ export const PickupLocationPicker: React.FC<PickupLocationPickerProps> = ({ onLo
           onChange={(e) => setValue(e.target.value)}
           disabled={!ready}
           placeholder="Search for an address or find your location below..."
-          className="w-full px-3 py-2 text-sm border rounded-md bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+          className="w-full px-3 py-2 text-sm border rounded-md bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-sm text-foreground"
         />
         
         {status === "OK" && (
-          <ul className="absolute z-50 w-full bg-popover border text-popover-foreground rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
+          <ul className="absolute z-50 w-full bg-popover border text-popover-foreground rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg pointer-events-auto divide-y divide-border">
             {data.map(({ place_id, description }) => (
               <li
                 key={place_id}
                 onClick={() => handleSelectAddress(description)}
-                className="px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm border-b last:border-0"
+                className="px-3 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm transition-colors"
               >
                 {description}
               </li>
@@ -93,19 +114,25 @@ export const PickupLocationPicker: React.FC<PickupLocationPickerProps> = ({ onLo
       </div>
 
       {/* Free Interactive Map canvas */}
-      <div className="w-full h-64 rounded-lg overflow-hidden border relative shadow-inner bg-muted">
+      <div className="w-full h-64 rounded-lg overflow-hidden border relative shadow-inner bg-muted z-10">
         <Map
           viewport={viewport}
           onViewportChange={setViewport}
         >
-          <MapControls position="bottom-right" showZoom showLocate />
+          {/* ✅ FIX: Passed onLocate listener to map primitive controls */}
+          <MapControls 
+            position="bottom-right" 
+            showZoom 
+            showLocate 
+            onLocate={handleLiveLocationDetected}
+          />
           
           {/* Custom marker using the required full long/lat property assignments */}
           <MapMarker 
             longitude={markerPosition[0]} 
             latitude={markerPosition[1]}
           >
-            <div className="p-2 bg-primary text-primary-foreground rounded-full shadow-md animate-pulse">
+            <div className="p-2 bg-primary text-primary-foreground rounded-full shadow-md animate-pulse border-2 border-background">
               <MapPin className="h-5 w-5" />
             </div>
           </MapMarker>
